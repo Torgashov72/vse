@@ -5,7 +5,7 @@
 
 using namespace std;
 
-// Функция для выделения памяти под матрицу
+// Выделение памяти под матрицу
 double** allocateMatrix(int n) {
     double** mat = new double* [n];
     for (int i = 0; i < n; ++i) {
@@ -14,12 +14,12 @@ double** allocateMatrix(int n) {
     return mat;
 }
 
-// Функция для выделения памяти под вектор
+// Выделение памяти под вектор
 double* allocateVector(int n) {
     return new double[n];
 }
 
-// Функция для освобождения памяти матрицы
+// Освобождение памяти матрицы
 void freeMatrix(double** mat, int n) {
     for (int i = 0; i < n; ++i) {
         delete[] mat[i];
@@ -27,7 +27,7 @@ void freeMatrix(double** mat, int n) {
     delete[] mat;
 }
 
-// Функция для освобождения памяти вектора
+// Освобождение памяти вектора
 void freeVector(double* vec) {
     delete[] vec;
 }
@@ -42,6 +42,20 @@ double computeNorm(double* x_old, double* x_new, int n) {
         }
     }
     return maxDiff;
+}
+
+// Вычисление вектора невязки F(x) для системы:
+// F_i(x) = sum(A_ij * x_j) + sum(B_ij * x_j^2) - f_i
+void calculateF(int n, double** A, double** B, double* f, double* x, double* F) {
+    for (int i = 0; i < n; ++i) {
+        double sumLinear = 0.0;
+        double sumNonLinear = 0.0;
+        for (int j = 0; j < n; ++j) {
+            sumLinear += A[i][j] * x[j];
+            sumNonLinear += B[i][j] * x[j] * x[j];
+        }
+        F[i] = sumLinear + sumNonLinear - f[i];
+    }
 }
 
 int main() {
@@ -62,23 +76,32 @@ int main() {
     }
 
     int n;
-    double omega, epsilon;
+    double tau, epsilon;
     int maxIter;
 
     // Чтение параметров
-    inFile >> n;
-    inFile >> omega >> epsilon >> maxIter;
+    // Формат: N tau epsilon maxIter
+    inFile >> n >> tau >> epsilon >> maxIter;
 
     // Выделение памяти
-    double** A = allocateMatrix(n);
-    double* f = allocateVector(n);
-    double* x = allocateVector(n);
-    double* x_prev = allocateVector(n);
+    double** A = allocateMatrix(n); // Линейные коэффициенты
+    double** B = allocateMatrix(n); // Нелинейные коэффициенты (при x^2)
+    double* f = allocateVector(n);  // Правая часть
+    double* x = allocateVector(n);  // Текущее приближение
+    double* x_prev = allocateVector(n); // Предыдущее приближение
+    double* F_vec = allocateVector(n); // Вектор значений функций
 
-    // Чтение матрицы A
+    // Чтение матрицы A (линейная часть)
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             inFile >> A[i][j];
+        }
+    }
+
+    // Чтение матрицы B (нелинейная часть)
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            inFile >> B[i][j];
         }
     }
 
@@ -93,66 +116,53 @@ int main() {
         x_prev[i] = 0.0;
     }
 
-    outFile << "Параметры метода:" << endl;
+    outFile << "Параметры метода релаксации (нелинейный случай):" << endl;
     outFile << "Размерность: " << n << endl;
-    outFile << "Omega (параметр релаксации): " << omega << endl;
+    outFile << "Tau (параметр релаксации): " << tau << endl;
     outFile << "Точность (epsilon): " << epsilon << endl;
     outFile << "Макс. итераций: " << maxIter << endl;
     outFile << "----------------------------------------" << endl;
 
-    // --- ПРОВЕРКА ДИАГОНАЛИ ПЕРЕД ЦИКЛОМ ---
-    // Так как матрица A не меняется, достаточно проверить один раз
-    bool diagonalError = false;
-    for (int i = 0; i < n; ++i) {
-        if (fabs(A[i][i]) < 1e-12) {
-            outFile << "Ошибка: Нулевой элемент на главной диагонали в строке " << i << endl;
-            diagonalError = true;
-            break; // Выходим из цикла проверки
-        }
-    }
-
     int iter = 0;
     double norm = epsilon + 1.0;
     bool converged = false;
+    bool diverged = false;
 
-    // Запускаем итерации только если нет ошибок диагонали
-    if (!diagonalError) {
-        while (iter < maxIter && norm >= epsilon) {
-            // Сохраняем предыдущее приближение
-            for (int i = 0; i < n; ++i) {
-                x_prev[i] = x[i];
-            }
-
-            for (int i = 0; i < n; ++i) {
-                // Здесь проверка уже не нужна, так как мы проверили A[i][i] выше
-
-                double sum1 = 0.0;
-                for (int j = 0; j < i; ++j) {
-                    sum1 += A[i][j] * x[j];
-                }
-
-                double sum2 = 0.0;
-                for (int j = i + 1; j < n; ++j) {
-                    sum2 += A[i][j] * x_prev[j];
-                }
-
-                // Формула верхней релаксации
-                x[i] = (1.0 - omega) * x_prev[i] + (omega / A[i][i]) * (f[i] - sum1 - sum2);
-            }
-
-            norm = computeNorm(x_prev, x, n);
-            iter++;
+    // Основной цикл итерационного процесса
+    while (iter < maxIter && norm >= epsilon) {
+        // Сохраняем предыдущее приближение
+        for (int i = 0; i < n; ++i) {
+            x_prev[i] = x[i];
         }
 
-        if (norm < epsilon) {
-            converged = true;
+        // Вычисляем F(x_prev)
+        calculateF(n, A, B, f, x_prev, F_vec);
+
+        // Применяем метод релаксации: x_new = x_old - tau * F(x_old)
+        for (int i = 0; i < n; ++i) {
+            x[i] = x_prev[i] - tau * F_vec[i];
         }
+
+        // Вычисление нормы разности
+        norm = computeNorm(x_prev, x, n);
+        iter++;
+
+        // Проверка на расходимость (защита от бесконечного роста)
+        if (norm > 1e10) {
+            diverged = true;
+            break;
+        }
+    }
+
+    if (norm < epsilon) {
+        converged = true;
     }
 
     // Вывод результатов
     outFile << "Результаты:" << endl;
-    if (diagonalError) {
-        outFile << "Вычисления прерваны из-за ошибки матрицы." << endl;
+    if (diverged) {
+        outFile << "Метод расходится (погрешность слишком велика)." << endl;
+        outFile << "Рекомендуется уменьшить параметр tau." << endl;
     }
     else if (converged) {
         outFile << "Метод сошелся за " << iter << " итераций." << endl;
@@ -166,39 +176,30 @@ int main() {
     outFile << "----------------------------------------" << endl;
     outFile << "Вектор решения X:" << endl;
     outFile << fixed << setprecision(10);
-
-    // Выводим решение только если не было ошибки диагонали
-    if (!diagonalError) {
-        for (int i = 0; i < n; ++i) {
-            outFile << "x[" << i << "] = " << x[i] << endl;
-        }
-
-        // Проверка невязки
-        outFile << "----------------------------------------" << endl;
-        outFile << "Проверка невязки (Ax - f):" << endl;
-        double* residual = allocateVector(n);
-        for (int i = 0; i < n; ++i) {
-            double sum = 0.0;
-            for (int j = 0; j < n; ++j) {
-                sum += A[i][j] * x[j];
-            }
-            residual[i] = sum - f[i];
-            outFile << "R[" << i << "] = " << residual[i] << endl;
-        }
-        freeVector(residual);
+    for (int i = 0; i < n; ++i) {
+        outFile << "x[" << i << "] = " << x[i] << endl;
     }
 
-    // Освобождение памяти (вместо метки cleanup)
+    // Проверка невязки (подстановка решения в F(x))
+    outFile << "----------------------------------------" << endl;
+    outFile << "Проверка невязки " << endl;
+    calculateF(n, A, B, f, x, F_vec);
+    for (int i = 0; i < n; ++i) {
+        outFile << "F[" << i << "] = " << F_vec[i] << endl;
+    }
+
+    // Освобождение памяти
     freeMatrix(A, n);
+    freeMatrix(B, n);
     freeVector(f);
     freeVector(x);
     freeVector(x_prev);
+    freeVector(F_vec);
 
     inFile.close();
     outFile.close();
 
     cout << "Расчет завершен. Результаты сохранены в output.txt" << endl;
 
-    // Возвращаем код ошибки, если была проблема с диагональю
-    return diagonalError ? 1 : 0;
+    return 0;
 }
