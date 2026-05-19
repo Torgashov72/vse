@@ -1,0 +1,26 @@
+# Дан текст, состоящий из нескольких строк(ввод до тех пор, пока не будет введена пустая строка).
+# Найти и вывести строку, в которой содержится максимальное количество различных цифр(0–9).
+# Если таких строк несколько, вывести первую.
+
+best_line = ""
+max_count = -1
+
+while True:
+    try:
+        line = input()
+    except EOFError:
+        break
+    
+    if line == "":
+        break
+    
+    digits = set()
+    for ch in line:
+        if '0' <= ch <= '9':
+            digits.add(ch)
+            
+    if len(digits) > max_count:
+        max_count = len(digits)
+        best_line = line
+
+print(best_line)
