@@ -1,0 +1,62 @@
+@startuml
+top to bottom direction
+skinparam packageStyle rectangle
+skinparam usecaseWidth 130
+hide empty members
+
+actor "Незарегистрированный" as Guest
+actor "Зарегистрированный" as User
+actor "AI-сервис" as AI
+
+Guest <|-- User
+
+rectangle "Bsduig" {
+  
+  usecase "Регистрация/Вход" as UC1
+  usecase "Семантический поиск" as UC2
+  usecase "AI-тегирование" as UC3
+  usecase "Поиск дубликатов" as UC4
+  usecase "Массовое выделение" as UC5
+  usecase "Массовое переименование" as UC6
+  usecase "Массовое перемещение" as UC7
+  usecase "Автосортировка по событиям" as UC8
+  usecase "Создание правил" as UC9
+  usecase "Размытие лиц" as UC10
+  usecase "Просмотр на карте" as UC11
+  usecase "Автоматическая очистка" as UC12
+  usecase "Применение правил" as UC13
+  usecase "Экспорт фото" as UC14
+  
+  usecase "Валидация данных" as UC_Validate
+  usecase "Конвертация в вектор" as UC_Vector
+  usecase "Анализ ML-моделью" as UC_ML
+  usecase "Валидация шаблона" as UC_Template
+  
+  Guest --> UC1
+  User --> UC2
+  User --> UC3
+  User --> UC4
+  User --> UC5
+  User --> UC6
+  User --> UC7
+  User --> UC8
+  User --> UC9
+  User --> UC10
+  User --> UC11
+  User --> UC12
+  User --> UC13
+  User --> UC14
+  
+  AI --> UC_ML
+  
+  UC1 ..> UC_Validate : <<include>>
+  UC2 ..> UC_Vector : <<include>>
+  UC3 ..> UC_ML : <<include>>
+  UC6 ..> UC_Template : <<include>>
+  
+  UC12 .> UC5 : <<extend>>
+  UC13 .> UC5 : <<extend>>
+  UC10 .> UC14 : <<extend>>
+}
+
+@enduml
